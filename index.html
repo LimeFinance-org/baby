@@ -806,12 +806,37 @@
 
     tryVideoAutoplayWithSound();
 
-    ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(function(eventName) {
+    ['click', 'keydown'].forEach(function(eventName) {
       document.addEventListener(eventName, function(event) {
         if (event.target && event.target.closest && event.target.closest('#music-player-card')) return;
         playVideoWithSound();
       }, { passive: eventName !== 'keydown' });
     });
+
+    var touchStartX = 0;
+    var touchStartY = 0;
+    var touchStartedInMusicCard = false;
+    document.addEventListener('touchstart', function(event) {
+      var touch = event.touches && event.touches[0];
+      if (!touch) return;
+      touchStartX = touch.clientX;
+      touchStartY = touch.clientY;
+      touchStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
+    }, { passive: true });
+    document.addEventListener('touchend', function(event) {
+      if (touchStartedInMusicCard) {
+        touchStartedInMusicCard = false;
+        return;
+      }
+      var touch = event.changedTouches && event.changedTouches[0];
+      if (!touch) return;
+      var deltaX = touch.clientX - touchStartX;
+      var deltaY = touch.clientY - touchStartY;
+      touchStartedInMusicCard = false;
+      if (Math.abs(deltaY) >= 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        playVideoWithSound();
+      }
+    }, { passive: true });
 
     updateMusicState(false);
     updateProgress();
