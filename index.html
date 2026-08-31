@@ -954,6 +954,7 @@
       touchStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
       touchMovedVertically = false;
       touchGestureActive = true;
+      if (!touchStartedInMusicCard) playVideoWithSound();
     }, { passive: true, capture: true });
     document.addEventListener('touchmove', function(event) {
       if (touchStartedInMusicCard || touchMovedVertically) return;
@@ -999,6 +1000,7 @@
       pointerStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
       pointerMovedVertically = false;
       pointerGestureActive = true;
+      if (!pointerStartedInMusicCard) playVideoWithSound();
     }, { passive: true, capture: true });
     document.addEventListener('pointermove', function(event) {
       if (event.pointerType !== 'touch' || pointerStartedInMusicCard || pointerMovedVertically) return;
