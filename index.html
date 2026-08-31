@@ -283,7 +283,7 @@
                             
                 <div class="cover__artwork">
                     <img class="cover__artwork-img" src="assets/logo.jpg" alt="artwork">
-                    <video class="cover__paper-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1">
+                    <video class="cover__paper-video" autoplay muted loop playsinline webkit-playsinline x5-playsinline x5-video-player-type="h5-page" preload="metadata" aria-hidden="true" tabindex="-1" disablepictureinpicture disableremoteplayback>
                         <source src="assets/video/paper-video.mp4" type="video/mp4">
                     </video>
                     <img class="cover__paper-foreground" src="assets/logo-foreground-v4.webp" alt="" aria-hidden="true">
@@ -310,6 +310,7 @@
             </div>
         </div>
         <audio id="site-music" preload="none"></audio>
+        <audio id="site-video-audio" preload="none" loop aria-hidden="true"></audio>
     </div>
     
     
@@ -515,6 +516,7 @@
     var progress = document.querySelector('#music-player-progress');
     var playerCard = document.querySelector('#music-player-card');
     var video = document.querySelector('.cover__paper-video');
+    var videoAudio = document.querySelector('#site-video-audio');
     var order = [];
     var currentIndex = -1;
     var currentTrack = null;
@@ -522,6 +524,12 @@
     var currentLyricIndex = -1;
     var lyricRequestId = 0;
     var isProgressDragging = false;
+    var videoSoundEnabled = false;
+    var videoAudioFallback = false;
+    var videoPlaybackWanted = true;
+    var videoAudioSourceReady = false;
+    var videoResumeTimer = 0;
+    var videoResumeAttempts = 0;
 
     function formatTime(seconds) {
       var value = Number(seconds);
@@ -693,9 +701,47 @@
       selectTrack(previousIndex, true);
     }
 
+    function ensureVideoAudioSource() {
+      if (!videoAudio || videoAudioSourceReady) return;
+      videoAudio.src = 'assets/video/paper-video.mp4';
+      videoAudio.preload = 'auto';
+      videoAudio.loop = true;
+      videoAudioSourceReady = true;
+    }
+
+    function syncVideoAudioPosition() {
+      if (!video || !videoAudio || !videoSoundEnabled || videoAudioFallback) return;
+      var videoTime = Number(video.currentTime);
+      var audioTime = Number(videoAudio.currentTime);
+      if (!isFinite(videoTime) || !isFinite(audioTime)) return;
+      if (Math.abs(videoTime - audioTime) > 0.35) {
+        try { video.currentTime = audioTime; } catch (_) {}
+      }
+    }
+
+    function scheduleVideoResume() {
+      if (!video || document.hidden || !videoPlaybackWanted || videoResumeTimer) return;
+      if (videoResumeAttempts >= 4) return;
+      videoResumeTimer = setTimeout(function() {
+        videoResumeTimer = 0;
+        if (!video || document.hidden || !videoPlaybackWanted || !video.paused) {
+          videoResumeAttempts = 0;
+          return;
+        }
+        videoResumeAttempts += 1;
+        resumeVideoPlayback();
+        if (video.paused) scheduleVideoResume();
+      }, 80);
+    }
+
     function playMusic() {
       if (!audio) return;
       if (!audio.src) chooseNextTrack(false);
+      videoSoundEnabled = false;
+      videoAudioFallback = false;
+      videoPlaybackWanted = true;
+      videoResumeAttempts = 0;
+      if (videoAudio) videoAudio.pause();
       if (video) {
         video.muted = true;
         if (video.paused) {
@@ -712,13 +758,40 @@
     function playVideoWithSound() {
       if (!video) return;
       if (audio && !audio.paused) audio.pause();
-      video.muted = false;
-      var promise = video.play();
-      if (promise && promise.catch) promise.catch(function() {});
+      videoSoundEnabled = true;
+      videoAudioFallback = false;
+      videoPlaybackWanted = true;
+      videoResumeAttempts = 0;
+      ensureVideoAudioSource();
+      video.muted = true;
+      var videoPromise = video.play();
+      if (videoPromise && videoPromise.catch) videoPromise.catch(function() {});
+      if (!videoAudio) {
+        video.muted = false;
+        return;
+      }
+      if (!videoAudio.paused) return;
+      var videoTime = Number(video.currentTime);
+      if (isFinite(videoTime) && videoAudio.readyState >= 1) {
+        try { videoAudio.currentTime = videoTime; } catch (_) {}
+      }
+      var audioPromise = videoAudio.play();
+      if (audioPromise && audioPromise.catch) {
+        audioPromise.catch(function() {
+          // If the browser rejects the separate audio element, retry the
+          // original video audio while this same gesture is still active.
+          videoSoundEnabled = true;
+          videoAudioFallback = true;
+          video.muted = false;
+          var fallback = video.play();
+          if (fallback && fallback.catch) fallback.catch(function() {});
+        });
+      }
     }
 
     function resumeVideoPlayback() {
       if (!video || document.hidden || !video.paused) return;
+      if (videoSoundEnabled) video.muted = !videoAudioFallback;
       var promise = video.play();
       if (promise && promise.catch) promise.catch(function() {});
     }
@@ -807,7 +880,20 @@
         if (audio && !audio.paused) audio.pause();
       });
       video.addEventListener('pause', function() {
-        if (!document.hidden) setTimeout(resumeVideoPlayback, 0);
+        if (!document.hidden && videoPlaybackWanted) scheduleVideoResume();
+      });
+      video.addEventListener('timeupdate', syncVideoAudioPosition);
+      video.addEventListener('loadedmetadata', syncVideoAudioPosition);
+    }
+
+    if (videoAudio) {
+      videoAudio.addEventListener('loadedmetadata', syncVideoAudioPosition);
+      videoAudio.addEventListener('timeupdate', syncVideoAudioPosition);
+      videoAudio.addEventListener('pause', function() {
+        if (videoSoundEnabled && !videoAudioFallback && !document.hidden) {
+          var promise = videoAudio.play();
+          if (promise && promise.catch) promise.catch(function() {});
+        }
       });
     }
 
@@ -850,6 +936,15 @@
     var touchStartY = 0;
     var touchStartedInMusicCard = false;
     var touchMovedVertically = false;
+    var pointerStartX = 0;
+    var pointerStartY = 0;
+    var pointerStartedInMusicCard = false;
+    var pointerMovedVertically = false;
+    var touchGestureActive = false;
+    var pointerGestureActive = false;
+    function isVerticalGesture(deltaX, deltaY) {
+      return Math.abs(deltaY) >= 8 && Math.abs(deltaY) > Math.abs(deltaX);
+    }
     document.addEventListener('touchstart', function(event) {
       var touch = event.touches && event.touches[0];
       if (!touch) return;
@@ -857,22 +952,24 @@
       touchStartY = touch.clientY;
       touchStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
       touchMovedVertically = false;
-    }, { passive: true });
+      touchGestureActive = true;
+    }, { passive: true, capture: true });
     document.addEventListener('touchmove', function(event) {
       if (touchStartedInMusicCard || touchMovedVertically) return;
       var touch = event.touches && event.touches[0];
       if (!touch) return;
       var deltaX = touch.clientX - touchStartX;
       var deltaY = touch.clientY - touchStartY;
-      if (Math.abs(deltaY) >= 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+      if (isVerticalGesture(deltaX, deltaY)) {
         touchMovedVertically = true;
         playVideoWithSound();
       }
-    }, { passive: true });
+    }, { passive: true, capture: true });
     document.addEventListener('touchend', function(event) {
       if (touchStartedInMusicCard) {
         touchStartedInMusicCard = false;
         touchMovedVertically = false;
+        touchGestureActive = false;
         return;
       }
       var touch = event.changedTouches && event.changedTouches[0];
@@ -880,15 +977,72 @@
       var deltaX = touch.clientX - touchStartX;
       var deltaY = touch.clientY - touchStartY;
       touchStartedInMusicCard = false;
-      if (Math.abs(deltaY) >= 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+      touchGestureActive = false;
+      if (isVerticalGesture(deltaX, deltaY)) {
         playVideoWithSound();
       }
       touchMovedVertically = false;
-    }, { passive: true });
+    }, { passive: true, capture: true });
+    document.addEventListener('touchcancel', function() {
+      touchStartedInMusicCard = false;
+      touchMovedVertically = false;
+      touchGestureActive = false;
+    }, { passive: true, capture: true });
 
-    window.addEventListener('scroll', resumeVideoPlayback, { passive: true });
+    // Some mobile browsers expose touch scrolling only through Pointer Events.
+    // Capture those gestures as well so a swipe can unlock the media element.
+    document.addEventListener('pointerdown', function(event) {
+      if (event.pointerType !== 'touch') return;
+      pointerStartX = event.clientX;
+      pointerStartY = event.clientY;
+      pointerStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
+      pointerMovedVertically = false;
+      pointerGestureActive = true;
+    }, { passive: true, capture: true });
+    document.addEventListener('pointermove', function(event) {
+      if (event.pointerType !== 'touch' || pointerStartedInMusicCard || pointerMovedVertically) return;
+      var deltaX = event.clientX - pointerStartX;
+      var deltaY = event.clientY - pointerStartY;
+      if (isVerticalGesture(deltaX, deltaY)) {
+        pointerMovedVertically = true;
+        playVideoWithSound();
+      }
+    }, { passive: true, capture: true });
+    document.addEventListener('pointerup', function(event) {
+      if (event.pointerType !== 'touch') return;
+      var deltaX = event.clientX - pointerStartX;
+      var deltaY = event.clientY - pointerStartY;
+      if (!pointerStartedInMusicCard && isVerticalGesture(deltaX, deltaY)) playVideoWithSound();
+      pointerStartedInMusicCard = false;
+      pointerMovedVertically = false;
+      pointerGestureActive = false;
+    }, { passive: true, capture: true });
+    document.addEventListener('pointercancel', function(event) {
+      if (event.pointerType !== 'touch') return;
+      pointerStartedInMusicCard = false;
+      pointerMovedVertically = false;
+      pointerGestureActive = false;
+    }, { passive: true, capture: true });
+
+    window.addEventListener('scroll', function() {
+      // A few embedded browsers omit touchend/pointerup while settling a
+      // scroll. The first scroll event is still part of that gesture, so use
+      // it as a final unlock attempt before the browser can suspend media.
+      if (!videoSoundEnabled && (touchGestureActive || pointerGestureActive)) playVideoWithSound();
+      resumeVideoPlayback();
+      if (videoSoundEnabled && !videoAudioFallback && videoAudio && videoAudio.paused && !document.hidden) {
+        var promise = videoAudio.play();
+        if (promise && promise.catch) promise.catch(function() {});
+      }
+    }, { passive: true });
     document.addEventListener('visibilitychange', function() {
-      if (!document.hidden) resumeVideoPlayback();
+      if (!document.hidden) {
+        resumeVideoPlayback();
+        if (videoSoundEnabled && !videoAudioFallback && videoAudio && videoAudio.paused) {
+          var promise = videoAudio.play();
+          if (promise && promise.catch) promise.catch(function() {});
+        }
+      }
     });
 
     updateMusicState(false);
