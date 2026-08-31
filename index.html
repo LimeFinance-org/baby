@@ -717,6 +717,12 @@
       if (promise && promise.catch) promise.catch(function() {});
     }
 
+    function resumeVideoPlayback() {
+      if (!video || document.hidden || !video.paused) return;
+      var promise = video.play();
+      if (promise && promise.catch) promise.catch(function() {});
+    }
+
     function tryVideoAutoplayWithSound() {
       if (!video) return;
       video.muted = false;
@@ -800,6 +806,9 @@
       video.addEventListener('play', function() {
         if (audio && !audio.paused) audio.pause();
       });
+      video.addEventListener('pause', function() {
+        if (!document.hidden) setTimeout(resumeVideoPlayback, 0);
+      });
     }
 
     if (button) {
@@ -840,16 +849,30 @@
     var touchStartX = 0;
     var touchStartY = 0;
     var touchStartedInMusicCard = false;
+    var touchMovedVertically = false;
     document.addEventListener('touchstart', function(event) {
       var touch = event.touches && event.touches[0];
       if (!touch) return;
       touchStartX = touch.clientX;
       touchStartY = touch.clientY;
       touchStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
+      touchMovedVertically = false;
+    }, { passive: true });
+    document.addEventListener('touchmove', function(event) {
+      if (touchStartedInMusicCard || touchMovedVertically) return;
+      var touch = event.touches && event.touches[0];
+      if (!touch) return;
+      var deltaX = touch.clientX - touchStartX;
+      var deltaY = touch.clientY - touchStartY;
+      if (Math.abs(deltaY) >= 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
+        touchMovedVertically = true;
+        playVideoWithSound();
+      }
     }, { passive: true });
     document.addEventListener('touchend', function(event) {
       if (touchStartedInMusicCard) {
         touchStartedInMusicCard = false;
+        touchMovedVertically = false;
         return;
       }
       var touch = event.changedTouches && event.changedTouches[0];
@@ -860,7 +883,13 @@
       if (Math.abs(deltaY) >= 12 && Math.abs(deltaY) > Math.abs(deltaX)) {
         playVideoWithSound();
       }
+      touchMovedVertically = false;
     }, { passive: true });
+
+    window.addEventListener('scroll', resumeVideoPlayback, { passive: true });
+    document.addEventListener('visibilitychange', function() {
+      if (!document.hidden) resumeVideoPlayback();
+    });
 
     updateMusicState(false);
     updateProgress();
