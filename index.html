@@ -237,6 +237,45 @@
         border-radius: 8px;
         pointer-events: none;
       }
+      .layout__cover .cover__paper-unmute {
+        position: absolute;
+        z-index: 4;
+        right: calc(21.85% + 8px);
+        bottom: calc(15.9% + 8px);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 1px solid rgba(255,255,255,.7);
+        border-radius: 999px;
+        color: #fff;
+        background: rgba(17,24,39,.42);
+        box-shadow: 0 4px 12px rgba(17,24,39,.18), inset 0 1px 0 rgba(255,255,255,.5);
+        backdrop-filter: blur(8px) saturate(1.2);
+        -webkit-backdrop-filter: blur(8px) saturate(1.2);
+        cursor: pointer;
+        touch-action: manipulation;
+        transition: transform .16s ease, background .16s ease, opacity .16s ease;
+      }
+      .layout__cover .cover__paper-unmute:hover,
+      .layout__cover .cover__paper-unmute:focus-visible {
+        background: rgba(17,24,39,.62);
+        transform: scale(1.06);
+      }
+      .layout__cover .cover__paper-unmute:focus-visible {
+        outline: 2px solid rgba(255,255,255,.95);
+        outline-offset: 2px;
+      }
+      .cover__paper-unmute-icon {
+        width: 16px;
+        height: 16px;
+        display: block;
+      }
+      .cover__paper-unmute.is-enabled .cover__paper-unmute-slash {
+        display: none;
+      }
       @media (prefers-reduced-transparency: reduce) {
         #contact-services::before,
         .vpn-card::before {
@@ -287,6 +326,13 @@
                         <source src="assets/video/paper-video.mp4" type="video/mp4">
                     </video>
                     <img class="cover__paper-foreground" src="assets/logo-foreground-v4.webp" alt="" aria-hidden="true">
+                    <button class="cover__paper-unmute" id="paper-video-unmute" type="button" aria-label="解除视频静音" aria-pressed="false" title="解除视频静音">
+                        <svg class="cover__paper-unmute-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+                            <path d="M4 10v4h4l5 4V6l-5 4H4Z" fill="currentColor"></path>
+                            <path d="M16 9.5a4.5 4.5 0 0 1 0 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"></path>
+                            <path class="cover__paper-unmute-slash" d="m17 7 5 5-5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"></path>
+                        </svg>
+                    </button>
                 </div>
                     </div>
 
@@ -531,6 +577,7 @@
     var playerCard = document.querySelector('#music-player-card');
     var video = document.querySelector('.cover__paper-video');
     var videoAudio = document.querySelector('#site-video-audio');
+    var unmuteButton = document.querySelector('#paper-video-unmute');
     var order = [];
     var currentIndex = -1;
     var currentTrack = null;
@@ -609,6 +656,14 @@
         button.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
         button.setAttribute('aria-label', isPlaying ? '暂停' : '播放');
       }
+    }
+
+    function updateVideoSoundButton(isEnabled) {
+      if (!unmuteButton) return;
+      unmuteButton.classList.toggle('is-enabled', !!isEnabled);
+      unmuteButton.setAttribute('aria-pressed', isEnabled ? 'true' : 'false');
+      unmuteButton.setAttribute('aria-label', isEnabled ? '视频声音已开启' : '解除视频静音');
+      unmuteButton.setAttribute('title', isEnabled ? '视频声音已开启' : '解除视频静音');
     }
 
     function setLyricText(message) {
@@ -757,6 +812,7 @@
       if (!audio.src) chooseNextTrack(false);
       videoSoundEnabled = false;
       videoAudioFallback = false;
+      updateVideoSoundButton(false);
       videoPlaybackWanted = true;
       videoResumeAttempts = 0;
       if (videoAudio) videoAudio.pause();
@@ -773,22 +829,29 @@
       }
     }
 
-    function playVideoWithSound() {
+    function playVideoWithSound(preferNativeSound) {
       if (!video) return;
-      if (audio && !audio.paused) audio.pause();
+      // Page taps/swipes must not interrupt a manually started music track.
+      // The music button pauses it explicitly before switching to video audio.
+      if (audio && !audio.paused) return;
       videoSoundEnabled = true;
-      videoAudioFallback = false;
+      videoAudioFallback = preferNativeSound !== false;
+      updateVideoSoundButton(true);
       videoPlaybackWanted = true;
       videoResumeAttempts = 0;
       ensureVideoAudioSource();
-      video.muted = true;
+      video.muted = !videoAudioFallback;
       var videoPromise = video.play();
       if (videoPromise && videoPromise.catch) videoPromise.catch(function() {});
       if (!videoAudio) {
         video.muted = false;
         return;
       }
-      if (!videoAudio.paused) return;
+      if (!videoAudio.paused) {
+        videoAudioFallback = false;
+        video.muted = true;
+        return;
+      }
       var videoTime = Number(video.currentTime);
       if (isFinite(videoTime) && videoAudio.readyState >= 1) {
         try { videoAudio.currentTime = videoTime; } catch (_) {}
@@ -796,7 +859,8 @@
       var audioPromise = videoAudio.play();
       if (audioPromise && audioPromise.then) {
         audioPromise.then(function() {
-          if (!videoSoundEnabled || videoAudioFallback) return;
+          if (!videoSoundEnabled) return;
+          videoAudioFallback = false;
           video.muted = true;
           var restart = video.play();
           if (restart && restart.catch) restart.catch(function() {});
@@ -807,8 +871,10 @@
           // If the browser rejects the separate audio element, retry the
           // original video audio while this same gesture is still active.
           videoSoundEnabled = true;
-          videoAudioFallback = true;
-          video.muted = false;
+          if (preferNativeSound === false) {
+            videoAudioFallback = true;
+            video.muted = false;
+          }
           var fallback = video.play();
           if (fallback && fallback.catch) fallback.catch(function() {});
         });
@@ -902,9 +968,6 @@
     }
 
     if (video) {
-      video.addEventListener('play', function() {
-        if (audio && !audio.paused) audio.pause();
-      });
       video.addEventListener('pause', function() {
         if (!document.hidden && videoPlaybackWanted) scheduleVideoResume();
       });
@@ -920,6 +983,14 @@
           var promise = videoAudio.play();
           if (promise && promise.catch) promise.catch(function() {});
         }
+      });
+    }
+
+    if (unmuteButton) {
+      unmuteButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        event.stopPropagation();
+        playVideoWithSound();
       });
     }
 
@@ -971,7 +1042,8 @@
     function isVerticalGesture(deltaX, deltaY) {
       return Math.abs(deltaY) >= 8 && Math.abs(deltaY) > Math.abs(deltaX);
     }
-    document.addEventListener('touchstart', function(event) {
+    var gestureListenerOptions = { passive: true, capture: true };
+    window.addEventListener('touchstart', function(event) {
       var touch = event.touches && event.touches[0];
       if (!touch) return;
       touchStartX = touch.clientX;
@@ -979,78 +1051,76 @@
       touchStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
       touchMovedVertically = false;
       touchGestureActive = true;
-      if (!touchStartedInMusicCard) playVideoWithSound();
-    }, { passive: true, capture: true });
-    document.addEventListener('touchmove', function(event) {
-      if (touchStartedInMusicCard || touchMovedVertically) return;
+      if (!touchStartedInMusicCard) playVideoWithSound(true);
+    }, gestureListenerOptions);
+    window.addEventListener('touchmove', function(event) {
+      // A vertical swipe that starts over the music row should still unlock
+      // video audio; only a click or horizontal progress drag belongs to the
+      // music player.
+      if (touchMovedVertically) return;
       var touch = event.touches && event.touches[0];
       if (!touch) return;
       var deltaX = touch.clientX - touchStartX;
       var deltaY = touch.clientY - touchStartY;
       if (isVerticalGesture(deltaX, deltaY)) {
         touchMovedVertically = true;
-        playVideoWithSound();
+        playVideoWithSound(true);
       }
-    }, { passive: true, capture: true });
-    document.addEventListener('touchend', function(event) {
-      if (touchStartedInMusicCard) {
-        touchStartedInMusicCard = false;
-        touchMovedVertically = false;
-        touchGestureActive = false;
-        return;
-      }
+    }, gestureListenerOptions);
+    window.addEventListener('touchend', function(event) {
       var touch = event.changedTouches && event.changedTouches[0];
-      if (!touch) return;
-      var deltaX = touch.clientX - touchStartX;
-      var deltaY = touch.clientY - touchStartY;
-      touchStartedInMusicCard = false;
-      touchGestureActive = false;
-      if (isVerticalGesture(deltaX, deltaY)) {
-        playVideoWithSound();
+      var isVertical = false;
+      if (touch) {
+        var deltaX = touch.clientX - touchStartX;
+        var deltaY = touch.clientY - touchStartY;
+        isVertical = isVerticalGesture(deltaX, deltaY);
       }
+      touchStartedInMusicCard = false;
+      touchGestureActive = false;
+      if (isVertical) playVideoWithSound(true);
       touchMovedVertically = false;
-    }, { passive: true, capture: true });
-    document.addEventListener('touchcancel', function() {
+    }, gestureListenerOptions);
+    window.addEventListener('touchcancel', function() {
       touchStartedInMusicCard = false;
       touchMovedVertically = false;
       touchGestureActive = false;
-    }, { passive: true, capture: true });
+    }, gestureListenerOptions);
 
     // Some mobile browsers expose touch scrolling only through Pointer Events.
     // Capture those gestures as well so a swipe can unlock the media element.
-    document.addEventListener('pointerdown', function(event) {
+    window.addEventListener('pointerdown', function(event) {
       if (event.pointerType !== 'touch') return;
       pointerStartX = event.clientX;
       pointerStartY = event.clientY;
       pointerStartedInMusicCard = !!(event.target && event.target.closest && event.target.closest('#music-player-card'));
       pointerMovedVertically = false;
       pointerGestureActive = true;
-      if (!pointerStartedInMusicCard) playVideoWithSound();
-    }, { passive: true, capture: true });
-    document.addEventListener('pointermove', function(event) {
-      if (event.pointerType !== 'touch' || pointerStartedInMusicCard || pointerMovedVertically) return;
+      if (!pointerStartedInMusicCard) playVideoWithSound(true);
+    }, gestureListenerOptions);
+    window.addEventListener('pointermove', function(event) {
+      if (event.pointerType !== 'touch' || pointerMovedVertically) return;
       var deltaX = event.clientX - pointerStartX;
       var deltaY = event.clientY - pointerStartY;
       if (isVerticalGesture(deltaX, deltaY)) {
         pointerMovedVertically = true;
-        playVideoWithSound();
+        playVideoWithSound(true);
       }
-    }, { passive: true, capture: true });
-    document.addEventListener('pointerup', function(event) {
+    }, gestureListenerOptions);
+    window.addEventListener('pointerup', function(event) {
       if (event.pointerType !== 'touch') return;
       var deltaX = event.clientX - pointerStartX;
       var deltaY = event.clientY - pointerStartY;
-      if (!pointerStartedInMusicCard && isVerticalGesture(deltaX, deltaY)) playVideoWithSound();
+      if (isVerticalGesture(deltaX, deltaY)) playVideoWithSound(true);
       pointerStartedInMusicCard = false;
       pointerMovedVertically = false;
       pointerGestureActive = false;
-    }, { passive: true, capture: true });
-    document.addEventListener('pointercancel', function(event) {
+    }, gestureListenerOptions);
+    window.addEventListener('pointercancel', function(event) {
       if (event.pointerType !== 'touch') return;
       pointerStartedInMusicCard = false;
       pointerMovedVertically = false;
       pointerGestureActive = false;
-    }, { passive: true, capture: true });
+    }, gestureListenerOptions);
 
     window.addEventListener('scroll', function() {
       // A few embedded browsers omit touchend/pointerup while settling a
@@ -1058,7 +1128,7 @@
       // it as a final unlock attempt before the browser can suspend media.
       if (!videoSoundEnabled && (touchGestureActive || pointerGestureActive ||
           (window.matchMedia && window.matchMedia('(pointer: coarse)').matches))) {
-        playVideoWithSound();
+        playVideoWithSound(true);
       }
       resumeVideoPlayback();
       if (videoSoundEnabled && !videoAudioFallback && videoAudio && videoAudio.paused && !document.hidden) {
@@ -1077,6 +1147,7 @@
     });
 
     updateMusicState(false);
+    updateVideoSoundButton(false);
     updateProgress();
   })();
 </script>
