@@ -387,6 +387,58 @@
   })();
 </script>
 
+<script>
+  (function(){
+    var tracks = [
+      'assets/audio/gem-11.mp3',
+      'assets/audio/uu-na-girl-said-to-me.mp3'
+    ];
+    var audio = new Audio();
+    var queue = [];
+    var interactionEvents = ['pointerdown', 'touchstart', 'keydown'];
+
+    audio.id = 'ambient-audio';
+    audio.preload = 'none';
+    audio.autoplay = true;
+    audio.volume = 0.45;
+    audio.setAttribute('playsinline', '');
+    audio.setAttribute('aria-hidden', 'true');
+    audio.style.display = 'none';
+    document.body.appendChild(audio);
+
+    function shuffle(items) {
+      for (var i = items.length - 1; i > 0; i -= 1) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var temp = items[i];
+        items[i] = items[j];
+        items[j] = temp;
+      }
+      return items;
+    }
+
+    function tryPlay() {
+      var promise = audio.play();
+      if (promise && promise.catch) promise.catch(function() {});
+    }
+
+    function playNext() {
+      if (!queue.length) queue = shuffle(tracks.slice());
+      audio.src = queue.pop();
+      tryPlay();
+    }
+
+    function resumeAfterInteraction() {
+      tryPlay();
+    }
+
+    audio.addEventListener('ended', playNext);
+    interactionEvents.forEach(function(eventName) {
+      document.addEventListener(eventName, resumeAfterInteraction, { passive: true });
+    });
+    playNext();
+  })();
+</script>
+
 
     </body>
 </html>
