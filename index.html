@@ -1028,7 +1028,10 @@
       // A few embedded browsers omit touchend/pointerup while settling a
       // scroll. The first scroll event is still part of that gesture, so use
       // it as a final unlock attempt before the browser can suspend media.
-      if (!videoSoundEnabled && (touchGestureActive || pointerGestureActive)) playVideoWithSound();
+      if (!videoSoundEnabled && (touchGestureActive || pointerGestureActive ||
+          (window.matchMedia && window.matchMedia('(pointer: coarse)').matches))) {
+        playVideoWithSound();
+      }
       resumeVideoPlayback();
       if (videoSoundEnabled && !videoAudioFallback && videoAudio && videoAudio.paused && !document.hidden) {
         var promise = videoAudio.play();
