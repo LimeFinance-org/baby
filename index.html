@@ -186,6 +186,10 @@
         position: relative;
         overflow: hidden;
       }
+      .layout__cover .cover__artwork-img {
+        position: relative;
+        z-index: 1;
+      }
       .layout__cover .cover__paper-video {
         position: absolute;
         z-index: 2;
@@ -197,6 +201,16 @@
         object-position: center;
         pointer-events: none;
         display: block;
+      }
+      .layout__cover .cover__paper-foreground {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+        border-radius: 8px;
+        pointer-events: none;
       }
       @media (prefers-reduced-transparency: reduce) {
         #contact-services::before,
@@ -247,6 +261,7 @@
                     <video class="cover__paper-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1">
                         <source src="assets/video/paper-video.mp4" type="video/mp4">
                     </video>
+                    <img class="cover__paper-foreground" src="assets/logo-foreground.webp" alt="" aria-hidden="true">
                 </div>
                     </div>
     
@@ -265,14 +280,17 @@
     </a>
 
     <div class="vpn-card music-player-card" id="music-player-card" role="group" aria-label="音乐播放器">
-        <button class="music-player__button" id="music-player-button" type="button" aria-pressed="false">
-            <span class="music-player__icon" id="music-player-icon" aria-hidden="true">▶</span>
-            <span class="music-player__meta">
-                <span class="music-player__label">背景音乐</span>
-                <span class="music-player__name" id="music-player-name">G.E.M. - 11</span>
-            </span>
-            <span class="music-player__state" id="music-player-state">播放</span>
-        </button>
+        <div class="music-player__controls">
+            <button class="music-player__skip" id="music-player-prev" type="button" aria-label="上一首" title="上一首">上一首</button>
+            <button class="music-player__button" id="music-player-button" type="button" aria-pressed="false">
+                <span class="music-player__icon" id="music-player-icon" aria-hidden="true">▶</span>
+                <span class="music-player__meta">
+                    <span class="music-player__name" id="music-player-name">G.E.M. - 11</span>
+                </span>
+                <span class="music-player__state" id="music-player-state">播放</span>
+            </button>
+            <button class="music-player__skip" id="music-player-next" type="button" aria-label="下一首" title="下一首">下一首</button>
+        </div>
         <audio id="site-music" preload="none"></audio>
     </div>
 
@@ -309,12 +327,14 @@
       .vpn-card .vpn-text a{text-decoration:none;color:#1f2937}
       .vpn-card--recommendation{margin-bottom:12px !important}
       .music-player-card{cursor:default}
-      .music-player__button{appearance:none;-webkit-appearance:none;width:100%;display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;color:rgba(31,41,55,.92);font:inherit;text-align:left;cursor:pointer}
+      .music-player__controls{display:flex;align-items:center;gap:8px;width:100%}
+      .music-player__button{appearance:none;-webkit-appearance:none;flex:1;min-width:0;width:auto;display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;color:rgba(31,41,55,.92);font:inherit;text-align:left;cursor:pointer}
       .music-player__icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 34px;width:34px;height:34px;border-radius:50%;background:linear-gradient(180deg,rgba(255,255,255,.7),rgba(255,255,255,.34));border:1px solid rgba(255,255,255,.76);box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 3px 10px rgba(17,24,39,.1);font-size:13px}
       .music-player__meta{display:flex;flex-direction:column;min-width:0;flex:1}
-      .music-player__label{font-size:11px;line-height:1.2;color:rgba(75,85,99,.7);letter-spacing:.08em;text-transform:uppercase}
       .music-player__name{margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;font-weight:700}
       .music-player__state{flex:0 0 auto;padding:6px 12px;border:1px solid rgba(255,255,255,.76);border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.28));box-shadow:inset 0 1px 0 rgba(255,255,255,.74),0 3px 10px rgba(17,24,39,.08);font-size:12px;font-weight:700}
+      .music-player__skip{appearance:none;-webkit-appearance:none;flex:0 0 auto;min-height:32px;padding:6px 8px;border:1px solid rgba(255,255,255,.76);border-radius:999px;background:linear-gradient(180deg,rgba(255,255,255,.58),rgba(255,255,255,.28));box-shadow:inset 0 1px 0 rgba(255,255,255,.74),0 3px 10px rgba(17,24,39,.08);color:rgba(31,41,55,.9);font:inherit;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap}
+      .music-player__skip:hover,.music-player__skip:focus-visible{background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.42))}
       .music-player__button:hover .music-player__state,.music-player__button:focus-visible .music-player__state{background:linear-gradient(180deg,rgba(255,255,255,.74),rgba(255,255,255,.42))}
       .music-player__button:focus-visible{outline:2px solid rgba(255,255,255,.94);outline-offset:3px;border-radius:12px}
     </style>
@@ -436,11 +456,14 @@
     ];
     var audio = document.querySelector('#site-music');
     var button = document.querySelector('#music-player-button');
+    var prevButton = document.querySelector('#music-player-prev');
+    var nextButton = document.querySelector('#music-player-next');
     var icon = document.querySelector('#music-player-icon');
     var name = document.querySelector('#music-player-name');
     var state = document.querySelector('#music-player-state');
     var video = document.querySelector('.cover__paper-video');
-    var queue = [];
+    var order = [];
+    var currentIndex = -1;
     var currentTrack = null;
 
     function shuffle(items) {
@@ -459,16 +482,43 @@
       if (button) button.setAttribute('aria-pressed', isPlaying ? 'true' : 'false');
     }
 
-    function chooseNextTrack() {
-      if (!queue.length) queue = shuffle(tracks.slice());
-      currentTrack = queue.pop();
+    function buildOrder() {
+      order = shuffle(tracks.map(function(_, index) { return index; }));
+      currentIndex = -1;
+    }
+
+    function selectTrack(index, shouldPlay) {
+      if (!tracks.length) return;
+      if (!order.length) buildOrder();
+      currentIndex = (index + order.length) % order.length;
+      currentTrack = tracks[order[currentIndex]];
       if (audio) audio.src = currentTrack.src;
       if (name) name.textContent = currentTrack.name;
+      if (shouldPlay) playMusic();
+    }
+
+    function chooseNextTrack(shouldPlay) {
+      if (!tracks.length) return;
+      if (!order.length) buildOrder();
+      var nextIndex = currentIndex + 1;
+      if (nextIndex >= order.length) {
+        buildOrder();
+        nextIndex = 0;
+      }
+      selectTrack(nextIndex, shouldPlay);
+    }
+
+    function choosePreviousTrack() {
+      if (!tracks.length) return;
+      if (!order.length) buildOrder();
+      var previousIndex = currentIndex - 1;
+      if (previousIndex < 0) previousIndex = order.length - 1;
+      selectTrack(previousIndex, true);
     }
 
     function playMusic() {
       if (!audio) return;
-      if (!audio.src) chooseNextTrack();
+      if (!audio.src) chooseNextTrack(false);
       if (video && !video.paused) video.pause();
       var promise = audio.play();
       if (promise && promise.catch) {
@@ -484,7 +534,7 @@
     }
 
     if (audio) {
-      chooseNextTrack();
+      chooseNextTrack(false);
       audio.addEventListener('play', function() {
         if (video && !video.paused) video.pause();
         updateMusicState(true);
@@ -493,8 +543,7 @@
         updateMusicState(false);
       });
       audio.addEventListener('ended', function() {
-        chooseNextTrack();
-        playMusic();
+        chooseNextTrack(true);
       });
     }
 
@@ -513,6 +562,20 @@
           audio.pause();
           playVideoWithSound();
         }
+      });
+    }
+
+    if (prevButton) {
+      prevButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        choosePreviousTrack();
+      });
+    }
+
+    if (nextButton) {
+      nextButton.addEventListener('click', function(event) {
+        event.preventDefault();
+        chooseNextTrack(true);
       });
     }
 
