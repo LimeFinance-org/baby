@@ -103,7 +103,7 @@
         position: absolute;
         inset: 0;
         pointer-events: none;
-        background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(240,244,248,.16));
+        background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(240,244,248,.14));
         backdrop-filter: blur(1px);
         -webkit-backdrop-filter: blur(1px);
       }
@@ -115,14 +115,17 @@
       .vpn-card {
         position: relative;
         overflow: hidden;
-        background: linear-gradient(135deg, rgba(255,255,255,.58) 0%, rgba(255,255,255,.28) 48%, rgba(255,255,255,.42) 100%) !important;
-        border: 1px solid rgba(255,255,255,.66);
+        border-radius: 22px !important;
+        border: 1px solid rgba(255,255,255,.72);
+        background:
+          radial-gradient(120% 110% at 0% 0%, rgba(255,255,255,.62) 0%, rgba(255,255,255,.30) 42%, rgba(226,237,248,.20) 100%),
+          linear-gradient(135deg, rgba(255,255,255,.42), rgba(231,239,248,.24)) !important;
         box-shadow:
-          0 18px 44px rgba(17,24,39,.16),
-          inset 0 1px 0 rgba(255,255,255,.82),
-          inset 0 -1px 0 rgba(255,255,255,.2) !important;
-        backdrop-filter: blur(20px) saturate(1.35);
-        -webkit-backdrop-filter: blur(20px) saturate(1.35);
+          0 18px 44px rgba(17,24,39,.15),
+          inset 0 1px 0 rgba(255,255,255,.9),
+          inset 0 -1px 0 rgba(255,255,255,.26) !important;
+        backdrop-filter: blur(22px) saturate(1.45) contrast(1.03);
+        -webkit-backdrop-filter: blur(22px) saturate(1.45) contrast(1.03);
       }
       #contact-services::before,
       .vpn-card::before {
@@ -131,7 +134,9 @@
         inset: 0;
         z-index: 0;
         pointer-events: none;
-        background: linear-gradient(115deg, rgba(255,255,255,.36) 0%, rgba(255,255,255,0) 36%, rgba(255,255,255,.1) 100%);
+        background:
+          radial-gradient(85% 50% at 0% 0%, rgba(255,255,255,.48), rgba(255,255,255,0) 70%),
+          linear-gradient(115deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,0) 45%, rgba(255,255,255,.13) 100%);
       }
       #contact-services .music-service-list__item,
       .vpn-card > * {
@@ -139,23 +144,32 @@
         z-index: 1;
       }
       #contact-services .music-service-list__item:not(:first-child) {
-        border-top-color: rgba(255,255,255,.46) !important;
+        border-top-color: rgba(255,255,255,.48) !important;
       }
       #contact-services .music-service-list__item:hover {
         background: rgba(255,255,255,.18) !important;
       }
       #contact-services .contact-label {
-        color: rgba(31,41,55,.84) !important;
-        text-shadow: 0 1px 1px rgba(255,255,255,.25);
+        color: rgba(31,41,55,.88) !important;
+        text-shadow: 0 1px 1px rgba(255,255,255,.28);
       }
       #contact-services .music-service-list__btn {
-        background: rgba(255,255,255,.38) !important;
-        border: 1px solid rgba(255,255,255,.46);
-        box-shadow: inset 0 1px 0 rgba(255,255,255,.56), 0 2px 8px rgba(17,24,39,.08);
+        min-height: 32px;
+        padding: 6px 13px !important;
+        border-radius: 999px !important;
+        color: rgba(31,41,55,.9) !important;
+        background: linear-gradient(180deg, rgba(255,255,255,.58), rgba(255,255,255,.28)) !important;
+        border: 1px solid rgba(255,255,255,.72) !important;
+        box-shadow: inset 0 1px 0 rgba(255,255,255,.72), 0 3px 10px rgba(17,24,39,.08) !important;
       }
       #contact-services .music-service-list__btn:hover,
       #contact-services .music-service-list__btn:focus-visible {
-        background: rgba(255,255,255,.56) !important;
+        background: linear-gradient(180deg, rgba(255,255,255,.72), rgba(255,255,255,.4)) !important;
+        transform: translateY(-1px);
+      }
+      #contact-services .music-service-list__btn:focus-visible {
+        outline: 2px solid rgba(255,255,255,.92);
+        outline-offset: 2px;
       }
       .vpn-card {
         transition: transform .2s ease, box-shadow .2s ease;
@@ -164,9 +178,9 @@
       .vpn-card:focus-visible {
         transform: translateY(-1px);
         box-shadow:
-          0 22px 48px rgba(17,24,39,.2),
-          inset 0 1px 0 rgba(255,255,255,.86),
-          inset 0 -1px 0 rgba(255,255,255,.22) !important;
+          0 22px 48px rgba(17,24,39,.19),
+          inset 0 1px 0 rgba(255,255,255,.94),
+          inset 0 -1px 0 rgba(255,255,255,.28) !important;
       }
       @media (prefers-reduced-transparency: reduce) {
         #contact-services::before,
@@ -176,9 +190,10 @@
         #contact-services,
         .vpn-card {
           background: #fff !important;
+          border-color: #e5e7eb;
           backdrop-filter: none;
           -webkit-backdrop-filter: none;
-          box-shadow: 0 4px 14px rgba(17,24,39,.1);
+          box-shadow: 0 4px 14px rgba(17,24,39,.1) !important;
         }
       }
     </style>
