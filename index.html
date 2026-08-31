@@ -777,6 +777,14 @@
         try { videoAudio.currentTime = videoTime; } catch (_) {}
       }
       var audioPromise = videoAudio.play();
+      if (audioPromise && audioPromise.then) {
+        audioPromise.then(function() {
+          if (!videoSoundEnabled || videoAudioFallback) return;
+          video.muted = true;
+          var restart = video.play();
+          if (restart && restart.catch) restart.catch(function() {});
+        });
+      }
       if (audioPromise && audioPromise.catch) {
         audioPromise.catch(function() {
           // If the browser rejects the separate audio element, retry the
