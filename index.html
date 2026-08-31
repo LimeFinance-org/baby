@@ -262,7 +262,7 @@
                     <video class="cover__paper-video" autoplay muted loop playsinline preload="metadata" aria-hidden="true" tabindex="-1">
                         <source src="assets/video/paper-video.mp4" type="video/mp4">
                     </video>
-                    <img class="cover__paper-foreground" src="assets/logo-foreground-v3.webp" alt="" aria-hidden="true">
+                    <img class="cover__paper-foreground" src="assets/logo-foreground-v4.webp" alt="" aria-hidden="true">
                 </div>
                     </div>
 
@@ -309,8 +309,9 @@
       #contact-services .music-service-list__item{min-height:72px !important}
       #contact-services .music-service-list__content{height:72px !important;padding:0 12px}
       #contact-services .music-service-list__link{padding:0 !important;border-top:none !important}
-      #contact-services .music-service-list__item,#contact-services .music-service-list__btn,#contact-services .music-service-list__link{transition:none !important}
-      #contact-services .music-service-list__item:hover{background-color:transparent !important;border-bottom:none !important}
+      #contact-services .music-service-list__item{transition:background-color .18s ease,box-shadow .18s ease !important}
+      #contact-services .music-service-list__btn,#contact-services .music-service-list__link{transition:none !important}
+      #contact-services .music-service-list__item:hover{background-color:rgba(255,255,255,.26) !important;border-bottom:none !important;box-shadow:inset 0 1px 0 rgba(255,255,255,.48),inset 0 -1px 0 rgba(255,255,255,.18)}
       #contact-services .music-service-list__item:not(:first-child):hover{border-top:1px solid #e5e7eb !important}
       #contact-services .music-service-list__item:not(:first-child){border-top:1px solid #e5e7eb !important}
       #contact-services .music-service-list__item:hover + .music-service-list__item .music-service-list__link{border-top:1px solid #e5e7eb !important}
@@ -331,6 +332,18 @@
       .vpn-card .vpn-text a{text-decoration:none;color:#1f2937}
       .vpn-card--recommendation{margin-bottom:12px !important}
       .music-player-card{display:block;cursor:default;margin-top:10px !important}
+      .music-player-card,
+      .music-player-card:hover,
+      .music-player-card:focus-visible{
+        background:transparent !important;
+        border-color:transparent !important;
+        box-shadow:none !important;
+        backdrop-filter:none !important;
+        -webkit-backdrop-filter:none !important;
+        overflow:visible;
+        transform:none;
+      }
+      .music-player-card::before{display:none}
       .music-player__controls{display:flex;align-items:center;gap:8px;width:100%}
       .music-player__button{appearance:none;-webkit-appearance:none;flex:1;min-width:0;width:auto;display:flex;align-items:center;gap:10px;padding:0;border:0;background:transparent;color:rgba(31,41,55,.92);font:inherit;text-align:left;cursor:pointer}
       .music-player__icon{display:inline-flex;align-items:center;justify-content:center;flex:0 0 26px;width:26px;height:26px;border-radius:7px;background:transparent;border:0;box-shadow:none;color:rgba(55,74,92,.76);font-size:16px;line-height:1}
@@ -602,7 +615,13 @@
     function playMusic() {
       if (!audio) return;
       if (!audio.src) chooseNextTrack(false);
-      if (video && !video.paused) video.pause();
+      if (video) {
+        video.muted = true;
+        if (video.paused) {
+          var videoPromise = video.play();
+          if (videoPromise && videoPromise.catch) videoPromise.catch(function() {});
+        }
+      }
       var promise = audio.play();
       if (promise && promise.catch) {
         promise.catch(function() { updateMusicState(false); });
@@ -611,15 +630,29 @@
 
     function playVideoWithSound() {
       if (!video) return;
+      if (audio && !audio.paused) audio.pause();
       video.muted = false;
       var promise = video.play();
       if (promise && promise.catch) promise.catch(function() {});
     }
 
+    function tryVideoAutoplayWithSound() {
+      if (!video) return;
+      video.muted = false;
+      var promise = video.play();
+      if (promise && promise.catch) {
+        promise.catch(function() {
+          video.muted = true;
+          var fallback = video.play();
+          if (fallback && fallback.catch) fallback.catch(function() {});
+        });
+      }
+    }
+
     if (audio) {
       chooseNextTrack(false);
       audio.addEventListener('play', function() {
-        if (video && !video.paused) video.pause();
+        if (video) video.muted = true;
         updateMusicState(true);
       });
       audio.addEventListener('pause', function() {
@@ -670,6 +703,8 @@
         chooseNextTrack(true);
       });
     }
+
+    tryVideoAutoplayWithSound();
 
     ['pointerdown', 'touchstart', 'click', 'keydown'].forEach(function(eventName) {
       document.addEventListener(eventName, function(event) {
